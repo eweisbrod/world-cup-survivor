@@ -231,28 +231,32 @@ const DB_ROOT = "wc26";
 
 // ─── World Cup 2026 Tournament Data ──────────────────────────────────────────
 
-// Round of 32 matchups split into 3 pick windows (2-day blocks)
+// Round of 32 matchups split into 3 pick windows (2-day blocks).
+// Each entry keeps its fixed bracket slot (g = group positions) and bracket
+// index — only the teams change once the group stage decides them. Teams here
+// are the confirmed R32 field; the live ESPN feed (applyEspnR32) reconciles
+// them automatically, so this also serves as an offline fallback.
 const R32_W1 = [
-  { a:"South Africa", b:"Canada",               t:"3:00p",  g:"A2/B2" },
-  { a:"Brazil",       b:"Japan",                t:"12:00p", g:"C1/F2" },
-  { a:"Germany",      b:"Paraguay",             t:"3:00p",  g:"E1/D3" },
-  { a:"Netherlands",  b:"Morocco",              t:"3:00p",  g:"F1/C2" },
+  { d:"2026-06-28", a:"South Africa", b:"Canada",      t:"3:00p",  g:"A2/B2" },
+  { d:"2026-06-29", a:"Brazil",       b:"Japan",       t:"1:00p",  g:"C1/F2" },
+  { d:"2026-06-29", a:"Germany",      b:"Paraguay",    t:"4:30p",  g:"E1/D3" },
+  { d:"2026-06-29", a:"Netherlands",  b:"Morocco",     t:"9:00p",  g:"F1/C2" },
 ];
 const R32_W2 = [
-  { a:"Ivory Coast",           b:"Norway",                t:"2:00p",  g:"E2/I2" },
-  { a:"France",                b:"Sweden",                t:"3:00p",  g:"I1/F3" },
-  { a:"Mexico",                b:"Scotland",              t:"6:00p",  g:"A1/C3" },
-  { a:"England",               b:"Cabo Verde",            t:"12:00p", g:"L1/H3" },
-  { a:"Egypt",                 b:"Czechia",               t:"5:00p",  g:"G1/A3" },
-  { a:"USA",                   b:"Bosnia & Herzegovina",  t:"4:00p",  g:"D1/B3" },
+  { d:"2026-06-30", a:"Ivory Coast", b:"Norway",                t:"1:00p",  g:"E2/I2" },
+  { d:"2026-06-30", a:"France",      b:"Sweden",                t:"5:00p",  g:"I1/F3" },
+  { d:"2026-06-30", a:"Mexico",      b:"Ecuador",               t:"9:00p",  g:"A1/C3" },
+  { d:"2026-07-01", a:"England",     b:"DR Congo",              t:"12:00p", g:"L1/H3" },
+  { d:"2026-07-01", a:"Belgium",     b:"Senegal",               t:"4:00p",  g:"G1/A3" },
+  { d:"2026-07-01", a:"USA",         b:"Bosnia & Herzegovina",  t:"8:00p",  g:"D1/B3" },
 ];
 const R32_W3 = [
-  { a:"Spain",       b:"Austria",   t:"3:00p",  g:"H1/J2" },
-  { a:"Switzerland", b:"Belgium",   t:"1:00p",  g:"B1/G3" },
-  { a:"Portugal",    b:"Ghana",     t:"1:00p",  g:"K2/L2" },
-  { a:"Australia",   b:"Iran",      t:"2:00p",  g:"D2/G2" },
-  { a:"Argentina",   b:"Uruguay",   t:"8:00p",  g:"J1/H2" },
-  { a:"Colombia",    b:"Croatia",   t:"2:00p",  g:"K1/L3" },
+  { d:"2026-07-02", a:"Spain",       b:"Austria",    t:"3:00p",  g:"H1/J2" },
+  { d:"2026-07-02", a:"Switzerland", b:"Algeria",    t:"11:00p", g:"B1/G3" },
+  { d:"2026-07-02", a:"Portugal",    b:"Croatia",    t:"7:00p",  g:"K2/L2" },
+  { d:"2026-07-03", a:"Australia",   b:"Egypt",      t:"2:00p",  g:"D2/G2" },
+  { d:"2026-07-03", a:"Argentina",   b:"Cabo Verde", t:"6:00p",  g:"J1/H2" },
+  { d:"2026-07-03", a:"Colombia",    b:"Ghana",      t:"9:30p",  g:"K1/L3" },
 ];
 
 // All 16 R32 games in bracket order (indices 0–15 map to matches M73–M88)
@@ -300,14 +304,22 @@ const ALIASES = {
   "cabo verde":                  "Cabo Verde",
   "cape verde":                  "Cabo Verde",
   "iran (islamic republic of)":  "Iran",
+  "dr congo":                    "DR Congo",
+  "congo dr":                    "DR Congo",
+  "democratic republic of the congo": "DR Congo",
+  "democratic republic of congo":"DR Congo",
+  "congo, dr":                   "DR Congo",
+  "ecuador":                     "Ecuador",
+  "senegal":                     "Senegal",
+  "algeria":                     "Algeria",
   // FIFA / ESPN abbreviations
   "bra":"Brazil",   "ger":"Germany",  "ned":"Netherlands", "nor":"Norway",
   "swe":"Sweden",   "por":"Portugal", "esp":"Spain",       "arg":"Argentina",
   "col":"Colombia", "mex":"Mexico",   "eng":"England",     "fra":"France",
   "sui":"Switzerland","bel":"Belgium","aut":"Austria",     "cro":"Croatia",
-  "uru":"Uruguay",  "iri":"Iran",     "aus":"Australia",   "jpn":"Japan",
-  "gha":"Ghana",    "egy":"Egypt",    "cze":"Czechia",     "par":"Paraguay",
-  "sco":"Scotland", "rsa":"South Africa","can":"Canada",   "cpv":"Cabo Verde",
+  "aus":"Australia","jpn":"Japan",    "gha":"Ghana",       "egy":"Egypt",
+  "par":"Paraguay", "rsa":"South Africa","can":"Canada",   "cpv":"Cabo Verde",
+  "ecu":"Ecuador",  "sen":"Senegal",  "alg":"Algeria",     "cod":"DR Congo",
 };
 
 // All teams in this tournament
@@ -398,6 +410,45 @@ function removePlayer(name) {
   if (state.player === name) logout();
 }
 
+// ─── Dynamic R32 fixtures ────────────────────────────────────────────────────
+// The R32 field is decided by group-stage results, so rather than trust the
+// hardcoded teams we reconcile each fixed bracket slot against ESPN's actual
+// schedule. On each played date the slots and ESPN events are matched by
+// kickoff order (both unique within a date), keeping every slot's bracket
+// index — and therefore the knockout tree — intact. Fully fail-safe: any gap,
+// count mismatch, or error leaves the hardcoded fallback in place.
+function applyEspnR32(byDate, log) {
+  try {
+    const espnName = c => c && c.team && (c.team.displayName || c.team.shortDisplayName || c.team.name || c.team.abbreviation);
+    // Group R32 slot indices by their scheduled date.
+    const slotsByDate = {};
+    R32_ALL.forEach((s, i) => { (slotsByDate[s.d] = slotsByDate[s.d] || []).push(i); });
+
+    let updated = 0;
+    for (const [date, idxs] of Object.entries(slotsByDate)) {
+      const data = byDate[date];
+      const events = (data && data.events ? data.events : []).filter(ev => ev.competitions && ev.competitions[0]);
+      if (!events.length) continue;                       // date not played/fetched yet
+      if (events.length !== idxs.length) { log && log("r32 " + date + " events " + events.length + "/" + idxs.length + " skip"); continue; }
+
+      const slotOrder = [...idxs].sort((a, b) => parseTimeET(R32_ALL[a].t) - parseTimeET(R32_ALL[b].t));
+      const evOrder   = [...events].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      for (let k = 0; k < slotOrder.length; k++) {
+        const slot = R32_ALL[slotOrder[k]];
+        const cs = evOrder[k].competitions[0].competitors || [];
+        if (cs.length < 2) continue;
+        const a = matchTeam(espnName(cs[0]));
+        const b = matchTeam(espnName(cs[1]));
+        if (!a || !b) continue;                            // unknown team → keep fallback
+        const same = (a === slot.a && b === slot.b) || (a === slot.b && b === slot.a);
+        if (!same) { slot.a = a; slot.b = b; updated++; log && log("r32 fix " + date + " " + a + " v " + b); }
+      }
+    }
+    if (updated) log && log("r32 updated " + updated);
+  } catch (e) { log && log("r32 espn err " + e.message); }
+}
+
 // ─── Score Fetching ──────────────────────────────────────────────────────────
 async function fetchScores() {
   const dbg = [];
@@ -435,6 +486,11 @@ async function fetchScores() {
 
   const allResults = await Promise.all(espnFetches);
   log("fetches done");
+
+  // Reconcile R32 matchups against the live ESPN fixtures (source of truth).
+  const byDate = {};
+  dates.forEach((dt, i) => { byDate[dt] = allResults[i]; });
+  applyEspnR32(byDate, log);
 
   for (let i = 0; i < dates.length; i++) {
     const data = allResults[i];
@@ -545,6 +601,17 @@ function buildDays() {
   const days = DAYS.map(d => ({ ...d, games: [...d.games] }));
   const idx  = id => days.findIndex(d => d.id === id);
 
+  // Rebuild R32 windows from the live source so ESPN updates flow through.
+  // Sorted by date+kickoff for display; the bracket tree above uses R32_ALL
+  // index order, which is independent of this display ordering.
+  const r32Game = g => ({ h:{s:null, n:g.a}, l:{s:null, n:g.b}, t:g.t, r:g.g });
+  const r32Sorted = arr => [...arr]
+    .sort((a, b) => a.d === b.d ? parseTimeET(a.t) - parseTimeET(b.t) : (a.d < b.d ? -1 : 1))
+    .map(r32Game);
+  days[idx("r32-w1")].games = r32Sorted(R32_W1);
+  days[idx("r32-w2")].games = r32Sorted(R32_W2);
+  days[idx("r32-w3")].games = r32Sorted(R32_W3);
+
   days[idx("r16-w4")].games   = r16.slice(0, 4).map(toGame);
   days[idx("r16-w5")].games   = r16.slice(4).map(toGame);
   days[idx("qf-w6")].games    = qf.map(toGame);
@@ -631,7 +698,7 @@ function render() {
         '<div class="login-card">' +
           '<div class="login-ball">\u26BD</div>' +
           '<h1 class="login-title">Survivor Pool</h1>' +
-          '<div class="login-sub">World Cup 2026 &middot; v1.0</div>' +
+          '<div class="login-sub">World Cup 2026 &middot; v1.1</div>' +
           '<div class="login-box">' +
             '<div class="login-label">Enter your name to join</div>' +
             '<input class="login-input" id="nameInput" placeholder="Your name..." autofocus>' +
@@ -665,7 +732,7 @@ function render() {
     '<div class="header-left">' +
       '<span style="font-size:20px">\u26BD</span>' +
       '<div>' +
-        '<div class="header-title">SURVIVOR POOL <span style="font-size:8px;opacity:0.3;letter-spacing:1px">v1.0</span></div>' +
+        '<div class="header-title">SURVIVOR POOL <span style="font-size:8px;opacity:0.3;letter-spacing:1px">v1.1</span></div>' +
         '<div class="header-sub">' + esc(state.player) +
           (elim ? ' <span style="color:var(--red)">\u2620\uFE0F OUT</span>' : "") +
           (!elim && w > 0 ? ' <span style="color:var(--green)">\u{1F525}' + w + '</span>' : "") +
