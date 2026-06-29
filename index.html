@@ -344,6 +344,8 @@ let state = {
   results: {},
   dayIdx: 0,
   board: false,
+  admin: false,
+  adminSel: null,
   fetchTime: null,
   debugLog: [],
   loading: true,
@@ -686,6 +688,8 @@ function render() {
     return;
   }
 
+  if (state.player && state.admin) { renderAdmin(); return; }
+
   if (!state.player) {
     let pList = "";
     if (state.players.length > 0) {
@@ -698,7 +702,7 @@ function render() {
         '<div class="login-card">' +
           '<div class="login-ball">\u26BD</div>' +
           '<h1 class="login-title">Survivor Pool</h1>' +
-          '<div class="login-sub">World Cup 2026 &middot; v1.1</div>' +
+          '<div class="login-sub">World Cup 2026 &middot; v1.2</div>' +
           '<div class="login-box">' +
             '<div class="login-label">Enter your name to join</div>' +
             '<input class="login-input" id="nameInput" placeholder="Your name..." autofocus>' +
@@ -732,7 +736,7 @@ function render() {
     '<div class="header-left">' +
       '<span style="font-size:20px">\u26BD</span>' +
       '<div>' +
-        '<div class="header-title">SURVIVOR POOL <span style="font-size:8px;opacity:0.3;letter-spacing:1px">v1.1</span></div>' +
+        '<div class="header-title">SURVIVOR POOL <span style="font-size:8px;opacity:0.3;letter-spacing:1px">v1.2</span></div>' +
         '<div class="header-sub">' + esc(state.player) +
           (elim ? ' <span style="color:var(--red)">\u2620\uFE0F OUT</span>' : "") +
           (!elim && w > 0 ? ' <span style="color:var(--green)">\u{1F525}' + w + '</span>' : "") +
@@ -741,6 +745,7 @@ function render() {
     '</div>' +
     '<div class="header-btns">' +
       '<button class="hbtn' + (state.board?" active":"") + '" id="boardBtn">BOARD</button>' +
+      '<button class="hbtn" id="adminBtn">ADMIN</button>' +
       '<button class="hbtn" id="fetchBtn">\u21BB</button>' +
       '<button class="hbtn" id="logoutBtn">SWITCH</button>' +
     '</div>' +
@@ -908,8 +913,77 @@ function teamBtn(name, seed, dayPick, usedTeams, accent, dayId, elim, opponent) 
   return '<button class="' + cls + '" style="' + style + '" data-pick="' + esc(name) + '" data-day="' + dayId + '">' + seedHtml + '<span class="' + nameClass + '">' + esc(name) + '</span>' + badge + '</button>';
 }
 
+// ─── Admin: edit any player's pick (bypasses lock) ───────────────────────────
+function renderAdmin() {
+  const app = document.getElementById("app");
+  const days = buildDays();
+  const players = state.players || [];
+  const sel = state.adminSel || {};
+  const curPlayer = sel.player || players[0] || "";
+  const curWin = sel.win || (days[0] && days[0].id) || "";
+  const winDay = days.find(d => d.id === curWin) || days[0];
+  const teams = winDay ? [...new Set(winDay.games.flatMap(g => [g.h.n, g.l.n]).filter(n => n && n !== "TBD"))] : [];
+  const existing = (state.picks[curPlayer] || {})[curWin] || "";
+  const selStyle = "width:100%;padding:11px;margin:4px 0 14px;background:var(--surface);color:var(--text);border:1px solid #333;border-radius:8px;font-size:15px";
+  const lblStyle = "font-size:10px;letter-spacing:1px;color:var(--text-dim)";
+
+  let html = '<div style="padding:18px;max-width:480px;margin:0 auto">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+    '<div style="font-size:15px;font-weight:700">⚙️ Admin — Edit Pick</div>' +
+    '<button class="hbtn" id="adminDone">DONE</button></div>';
+  html += '<div style="font-size:11px;color:var(--text-dim);margin-bottom:16px">Set or clear any player’s pick for any window. Bypasses the lock and writes immediately for everyone.</div>';
+
+  if (!players.length) {
+    html += '<div style="font-size:13px;color:var(--text-dim)">No players yet.</div></div>';
+    app.innerHTML = html;
+    document.getElementById("adminDone").addEventListener("click", () => { state.admin = false; state.adminSel = null; render(); });
+    return;
+  }
+
+  html += '<label style="' + lblStyle + '">PLAYER</label>' +
+    '<select id="adminPlayer" style="' + selStyle + '">' +
+    players.map(p => '<option' + (p === curPlayer ? ' selected' : '') + '>' + esc(p) + '</option>').join('') + '</select>';
+  html += '<label style="' + lblStyle + '">WINDOW</label>' +
+    '<select id="adminWindow" style="' + selStyle + '">' +
+    days.map(d => '<option value="' + esc(d.id) + '"' + (d.id === curWin ? ' selected' : '') + '>' + esc(d.label + ' — ' + d.round) + '</option>').join('') + '</select>';
+  html += '<label style="' + lblStyle + '">TEAM</label>' +
+    '<select id="adminTeam" style="' + selStyle + '"><option value="">— (clear pick) —</option>' +
+    teams.map(t => '<option' + (t === existing ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>';
+  if (!teams.length) html += '<div style="font-size:11px;color:var(--yellow);margin:-8px 0 12px">This round’s matchups aren’t set yet.</div>';
+  html += '<div style="font-size:12px;margin:2px 0 14px;color:var(--text-dim)">Current pick: <b style="color:var(--text)">' + (existing ? esc(existing) : '(none)') + '</b></div>';
+  html += '<button class="login-btn" id="adminSave">SAVE</button>';
+  html += '<div id="adminMsg" style="font-size:12px;margin-top:12px;min-height:16px"></div>';
+  html += '</div>';
+  app.innerHTML = html;
+
+  const reselect = () => {
+    state.adminSel = {
+      player: document.getElementById("adminPlayer").value,
+      win: document.getElementById("adminWindow").value,
+    };
+    renderAdmin();
+  };
+  document.getElementById("adminPlayer").addEventListener("change", reselect);
+  document.getElementById("adminWindow").addEventListener("change", reselect);
+  document.getElementById("adminDone").addEventListener("click", () => { state.admin = false; state.adminSel = null; render(); });
+  document.getElementById("adminSave").addEventListener("click", () => {
+    const player = document.getElementById("adminPlayer").value;
+    const win = document.getElementById("adminWindow").value;
+    const team = document.getElementById("adminTeam").value;
+    const msg = document.getElementById("adminMsg");
+    if (!player || !win) { msg.style.color = "var(--red)"; msg.textContent = "Pick a player and window."; return; }
+    const ref = db.ref(DB_ROOT + "/picks/" + player + "/" + win);
+    const op = team ? ref.set(team) : ref.remove();
+    op.then(() => {
+      msg.style.color = "var(--green)";
+      msg.textContent = team ? ("✓ Set " + player + " → " + team) : ("✓ Cleared " + player + "’s pick");
+    }).catch(e => { msg.style.color = "var(--red)"; msg.textContent = "Error: " + e.message; });
+  });
+}
+
 function bindEvents(days) {
   document.getElementById("boardBtn")?.addEventListener("click", () => { state.board = !state.board; render(); });
+  document.getElementById("adminBtn")?.addEventListener("click", () => { state.admin = true; render(); });
   document.getElementById("fetchBtn")?.addEventListener("click", fetchScores);
   document.getElementById("logoutBtn")?.addEventListener("click", logout);
   document.getElementById("changeBtn")?.addEventListener("click", () => {
