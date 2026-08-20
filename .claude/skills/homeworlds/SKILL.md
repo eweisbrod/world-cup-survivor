@@ -41,10 +41,20 @@ Run the SAFETY AUDIT before proposing any move. Most errors come from skipping i
        which changes the system's adjacency — recompute who can reach you.
      - **Material loss**: you have other ships there. You survive, but lose both pieces of
        that colour. Losing your only reds means losing all capture ability.
-2. **Deliverability test.** Getting N ships into one system in a single turn needs N move
-   actions — a yellow sacrifice of size N, or one free move per turn. A colour is only
-   catastrophe-deliverable if the *vehicle* is a different colour. Two yellows cannot
-   deliver themselves, because the sacrifice consumes one.
+2. **Reachability test — count BOTH ways a colour can grow, not just movement.**
+   - **By build (one action, no movement).** If a player owns a ship of colour X in the
+     system and has green power there, they add another X *in place*, size = smallest X
+     left in the stash. This is the cheapest route to a catastrophe and the easiest to
+     miss. Check it before committing any piece into a system.
+   - **By movement.** N ships into one system in a turn needs N move actions — a yellow
+     sacrifice of size N, or one free move per turn. A colour is only movement-deliverable
+     if the *vehicle* is a different colour: two yellows cannot deliver themselves, since
+     the sacrifice consumes one.
+
+   Corollary for your own attacks: **do not send a piece into an enemy system where its
+   colour already stands at 3, or at 2 with a build available.** "Uncapturable" is not
+   "safe" — a size-3 immune to capture still dies to a catastrophe, and the defender never
+   has to out-muscle it.
 3. **Never leave your homeworld with one ship** unless you can prove it survives.
 4. **Never reduce your homeworld ships to a single colour.**
 5. **Never trade away your last green** if you have no green star — that ends building
