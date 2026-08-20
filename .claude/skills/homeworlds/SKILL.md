@@ -32,8 +32,15 @@ Run the SAFETY AUDIT before proposing any move. Most errors come from skipping i
 
 1. **Count every colour in each homeworld, stars included.**
    - At 3 → one more piece is a catastrophe. Say so explicitly.
-   - At 2 → check the Bluebird: does the opponent hold 2 ships of that colour *plus a
-     separate yellow to sacrifice*? If yes it is a **two-turn kill**, not a hypothetical.
+   - At 2 → can the opponent add 2 of that colour? He needs 2 ships of it *plus a separate
+     yellow to sacrifice as the vehicle*. If so, grade the severity — do not just say
+     "Bluebird", which names only the lethal case:
+     - **Lethal (the true Bluebird)**: that pair is your ONLY ships in the system. The
+       catastrophe empties your homeworld and you are eliminated at the start of your turn.
+     - **Star loss**: the colour matches one of your homeworld stars. The star dies too,
+       which changes the system's adjacency — recompute who can reach you.
+     - **Material loss**: you have other ships there. You survive, but lose both pieces of
+       that colour. Losing your only reds means losing all capture ability.
 2. **Deliverability test.** Getting N ships into one system in a single turn needs N move
    actions — a yellow sacrifice of size N, or one free move per turn. A colour is only
    catastrophe-deliverable if the *vehicle* is a different colour. Two yellows cannot
