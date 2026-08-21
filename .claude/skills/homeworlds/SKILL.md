@@ -42,10 +42,15 @@ Run the SAFETY AUDIT before proposing any move. Most errors come from skipping i
      - **Material loss**: you have other ships there. You survive, but lose both pieces of
        that colour. Losing your only reds means losing all capture ability.
 2. **Reachability test — count BOTH ways a colour can grow, not just movement.**
-   - **By build (one action, no movement).** If a player owns a ship of colour X in the
-     system and has green power there, they add another X *in place*, size = smallest X
-     left in the stash. This is the cheapest route to a catastrophe and the easiest to
-     miss. Check it before committing any piece into a system.
+   - **By build (no movement).** If a player owns a ship of colour X in the system, they
+     add more X *in place*. One free action adds one. **Sacrificing a green of size N adds
+     N, in a single turn, at any system where they own a ship of the colour** — the
+     sacrificed green does not have to be in that system. Count their largest sacrificable
+     green before deciding a colour is safe. This is the cheapest route to a catastrophe
+     and the easiest to miss.
+   - **The safe threshold is therefore lower than it looks.** If the opponent can sacrifice
+     a G2, any colour standing at 2 after your arrival is already dead. Check every colour
+     in the target system, not just the one you're moving.
    - **By movement.** N ships into one system in a turn needs N move actions — a yellow
      sacrifice of size N, or one free move per turn. A colour is only movement-deliverable
      if the *vehicle* is a different colour: two yellows cannot deliver themselves, since
