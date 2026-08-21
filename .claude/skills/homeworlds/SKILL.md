@@ -60,11 +60,17 @@ Run the SAFETY AUDIT before proposing any move. Most errors come from skipping i
    colour already stands at 3, or at 2 with a build available.** "Uncapturable" is not
    "safe" — a size-3 immune to capture still dies to a catastrophe, and the defender never
    has to out-muscle it.
-3. **Never leave your homeworld with one ship** unless you can prove it survives.
-4. **Never reduce your homeworld ships to a single colour.**
-5. **Never trade away your last green** if you have no green star — that ends building
+3. **Before parking any ship, ask what the opponent's LARGEST ship in that system is.**
+   Red presence is never the constraint — a sacrifice supplies the attack from anywhere the
+   opponent owns a ship, and the size test runs off their biggest ship already standing
+   there. So a ship is safe in system S only if it is strictly larger than everything the
+   opponent has in S, or the opponent has no ship in S at all. "He has no red there" is not
+   a defence; neither is "he'd have to walk a red over".
+4. **Never leave your homeworld with one ship** unless you can prove it survives.
+5. **Never reduce your homeworld ships to a single colour.**
+6. **Never trade away your last green** if you have no green star — that ends building
    permanently.
-6. **Losing a star changes adjacency.** Recompute which systems can reach the homeworld.
+7. **Losing a star changes adjacency.** Recompute which systems can reach the homeworld.
 
 ## Stash parity
 
